@@ -6,8 +6,8 @@ import { HelperService } from './helper.service';
 import { ProductSale } from '../entities/product-sale.entity';
 import { Sale } from '../entities/sale.entity';
 import { Return } from 'src/entities/return.entity';
-import { ReturnProducts } from 'src/entities/return-item.entity';
 import { InjectModel } from '@nestjs/sequelize';
+import { ReturnProducts } from 'src/entities/return-products.entity';
 
 @Injectable()
 export class ItemService {
@@ -72,7 +72,7 @@ export class ItemService {
 
     const saleItem = this.saleItemModel.create({
       saleId: sale.invoiceCode,
-      itemId: item.code,
+      productId: item.code,
       batchNumber: row['Batch Number'],
       expiryDate: this.helperService.parseDateDynamic(row['Expiry Date']),
       bigQuantity: this.helperService.parseFloatOrNull(row['Big Quantity']),

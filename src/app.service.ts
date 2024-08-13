@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
 import { ChatOpenAI } from '@langchain/openai';
 import { HumanMessage } from '@langchain/core/messages';
 import { createSqlQueryChain } from 'langchain/chains/sql_db';
@@ -56,34 +56,38 @@ export class AppService implements OnModuleInit {
   }
 
   async chat(userQuery: string): Promise<any> {
-    const datasource = new DataSource({
-      type: 'postgres',
-      host: process.env.DB_HOST,
-      port: parseInt(process.env.DB_PORT, 10),
-      username: process.env.DB_USERNAME,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
-    });
+    try {
+      const datasource = new DataSource({
+        type: 'postgres',
+        host: process.env.DB_HOST,
+        port: parseInt(process.env.DB_PORT, 10),
+        username: process.env.DB_USERNAME,
+        password: process.env.DB_PASSWORD,
+        database: process.env.DB_NAME,
+      });
 
-    const db = await SqlDatabase.fromDataSourceParams({
-      appDataSource: datasource,
-    });
+      const db = await SqlDatabase.fromDataSourceParams({
+        appDataSource: datasource,
+      });
 
-    const toolkit = new SqlToolkit(db);
-    toolkit.dialect = 'postgres';
+      const toolkit = new SqlToolkit(db);
+      toolkit.dialect = 'postgres';
 
-    const model = new ChatOpenAI({
-      temperature: 0,
-      modelName: 'gpt-4o',
-    });
+      const model = new ChatOpenAI({
+        temperature: 0,
+        modelName: 'gpt-4o',
+      });
 
-    const executor = createSqlAgent(model, toolkit);
+      const executor = createSqlAgent(model, toolkit);
 
-    const result = await executor.invoke({
-      input: userQuery,
-    });
+      const result = await executor.invoke({
+        input: userQuery,
+      });
 
-    return result;
+      return result;
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
   }
 
   async readExcelFile(): Promise<void> {
