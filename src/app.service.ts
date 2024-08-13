@@ -15,9 +15,9 @@ import { Salesman } from './entities/salesman.entity';
 import { Sale } from './entities/sale.entity';
 import { Return } from './entities/return.entity';
 import { Collection } from './entities/collection.entity';
-import { Item } from './entities/item.entity';
-import { SaleItem } from './entities/sale-item.entity';
-import { ReturnItem } from './entities/return-item.entity';
+import { Product } from './entities/product.entity';
+import { ProductSale } from './entities/product-sale.entity';
+import { ReturnProducts } from './entities/return-products.entity';
 import { parse, parseISO, isValid } from 'date-fns';
 import {
   AgentExecutor,
@@ -69,26 +69,21 @@ export class AppService implements OnModuleInit {
       appDataSource: datasource,
     });
 
-    return await db.getTableInfo();
-    // const model = new ChatOpenAI({
-    //   temperature: 0,
-    //   modelName: 'gpt-4o-mini',
-    // });
+    const toolkit = new SqlToolkit(db);
+    toolkit.dialect = 'postgres';
 
-    // const executeQuery = new QuerySqlTool(db);
-    // const chain = await createSqlQueryChain({
-    //   llm: model,
-    //   db,
-    //   dialect: 'postgres',
-    // });
+    const model = new ChatOpenAI({
+      temperature: 0,
+      modelName: 'gpt-4o',
+    });
 
-    // const chain = writeQuery.pipe(executeQuery);
+    const executor = createSqlAgent(model, toolkit);
 
-    // const result = await chain.invoke({
-    //   question: userQuery,
-    // });
+    const result = await executor.invoke({
+      input: userQuery,
+    });
 
-    // return result;
+    return result;
   }
 
   async readExcelFile(): Promise<void> {
@@ -100,9 +95,9 @@ export class AppService implements OnModuleInit {
       const data = XLSX.utils.sheet_to_json(worksheet);
 
       switch (sheetName) {
-        // case 'مبيعات المندوبين':
-        //   await this.processSales(data);
-        //   break;
+        case 'مبيعات المندوبين':
+          await this.processSales(data);
+          break;
         case 'مرتجعات المندوبين':
           await this.processReturns(data);
           break;

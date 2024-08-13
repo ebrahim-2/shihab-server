@@ -8,9 +8,9 @@ import { Salesman } from './entities/salesman.entity';
 import { Sale } from './entities/sale.entity';
 import { Return } from './entities/return.entity';
 import { Collection } from './entities/collection.entity';
-import { Item } from './entities/item.entity';
-import { SaleItem } from './entities/sale-item.entity';
-import { ReturnItem } from './entities/return-item.entity';
+import { Product } from './entities/product.entity';
+import { ProductSale } from './entities/product-sale.entity';
+import { ReturnProducts } from './entities/return-products.entity';
 import { HelperService } from './services/helper.service';
 import { ItemService } from './services/items.service';
 import { SequelizeModule } from '@nestjs/sequelize';
@@ -33,9 +33,9 @@ import { SequelizeModule } from '@nestjs/sequelize';
         Sale,
         Return,
         Collection,
-        Item,
-        SaleItem,
-        ReturnItem,
+        Product,
+        ProductSale,
+        ReturnProducts,
       ],
       synchronize: true,
     }),
@@ -45,9 +45,9 @@ import { SequelizeModule } from '@nestjs/sequelize';
       Sale,
       Return,
       Collection,
-      Item,
-      SaleItem,
-      ReturnItem,
+      Product,
+      ProductSale,
+      ReturnProducts,
     ]),
   ],
   controllers: [AppController],

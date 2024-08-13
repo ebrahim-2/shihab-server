@@ -1,9 +1,9 @@
 import { Table, Column, Model, DataType, HasMany } from 'sequelize-typescript';
-import { SaleItem } from './sale-item.entity';
-import { ReturnItem } from './return-item.entity';
+import { ProductSale } from './product-sale.entity';
+import { ReturnProducts } from './return-products.entity';
 
 @Table
-export class Item extends Model<Item> {
+export class Product extends Model<Product> {
   @Column({
     type: DataType.INTEGER,
     primaryKey: true,
@@ -13,11 +13,11 @@ export class Item extends Model<Item> {
   @Column(DataType.STRING)
   name: string;
 
-  @HasMany(() => SaleItem)
-  saleItems: SaleItem[];
+  @HasMany(() => ProductSale)
+  productSales: ProductSale[];
 
-  @HasMany(() => ReturnItem)
-  returnItems: ReturnItem[];
+  @HasMany(() => ReturnProducts)
+  returnProducts: ReturnProducts[];
 
   @Column({
     type: DataType.INTEGER,

@@ -10,7 +10,7 @@ import {
 import { Customer } from './customer.entity';
 import { Salesman } from './salesman.entity';
 import { Sale } from './sale.entity';
-import { ReturnItem } from './return-item.entity';
+import { ReturnProducts } from './return-products.entity';
 
 @Table
 export class Return extends Model<Return> {
@@ -39,8 +39,8 @@ export class Return extends Model<Return> {
   @BelongsTo(() => Salesman)
   salesman: Salesman;
 
-  @HasMany(() => ReturnItem)
-  items: ReturnItem[];
+  @HasMany(() => ReturnProducts)
+  items: ReturnProducts[];
 
   @ForeignKey(() => Sale)
   @Column(DataType.STRING)

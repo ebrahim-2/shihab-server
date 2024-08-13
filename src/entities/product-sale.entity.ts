@@ -6,30 +6,30 @@ import {
   ForeignKey,
   BelongsTo,
 } from 'sequelize-typescript';
-import { Return } from './return.entity';
-import { Item } from './item.entity';
+import { Sale } from './sale.entity';
+import { Product } from './product.entity';
 
 @Table
-export class ReturnItem extends Model<ReturnItem> {
-  @ForeignKey(() => Return)
+export class ProductSale extends Model<ProductSale> {
+  @ForeignKey(() => Sale)
   @Column(DataType.STRING)
-  returnId: string;
+  saleId: string;
 
-  @BelongsTo(() => Return)
-  return_: Return;
+  @BelongsTo(() => Sale)
+  sale: Sale;
 
-  @ForeignKey(() => Item)
+  @ForeignKey(() => Product)
   @Column(DataType.INTEGER)
-  itemId: number;
+  productId: number;
 
-  @BelongsTo(() => Item)
-  item: Item;
+  @BelongsTo(() => Product)
+  product: Product;
 
   @Column(DataType.STRING)
   batchNumber: string;
 
   @Column(DataType.DATE)
-  expiryDate: Date;
+  expiryDate: Date | null;
 
   @Column(DataType.INTEGER)
   bigQuantity: number | null;
@@ -58,6 +58,9 @@ export class ReturnItem extends Model<ReturnItem> {
   @Column(DataType.INTEGER)
   priceSmall: number | null;
 
-  @Column(DataType.INTEGER)
-  returnSkuQty: number | null;
+  @Column({
+    type: DataType.DATE,
+    defaultValue: DataType.NOW,
+  })
+  createdAt: Date;
 }

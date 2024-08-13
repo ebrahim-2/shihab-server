@@ -9,7 +9,7 @@ import {
 } from 'sequelize-typescript';
 import { Customer } from './customer.entity';
 import { Salesman } from './salesman.entity';
-import { SaleItem } from './sale-item.entity';
+import { ProductSale } from './product-sale.entity';
 
 @Table
 export class Sale extends Model<Sale> {
@@ -38,8 +38,8 @@ export class Sale extends Model<Sale> {
   @BelongsTo(() => Salesman)
   salesman: Salesman;
 
-  @HasMany(() => SaleItem)
-  items: SaleItem[];
+  @HasMany(() => ProductSale)
+  products: ProductSale[];
 
   @Column(DataType.INTEGER)
   discountAmount: number;

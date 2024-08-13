@@ -1,27 +1,27 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Item } from '../entities/item.entity';
+import { Product } from '../entities/product.entity';
 import { HelperService } from './helper.service';
-import { SaleItem } from '../entities/sale-item.entity';
+import { ProductSale } from '../entities/product-sale.entity';
 import { Sale } from '../entities/sale.entity';
 import { Return } from 'src/entities/return.entity';
-import { ReturnItem } from 'src/entities/return-item.entity';
+import { ReturnProducts } from 'src/entities/return-item.entity';
 import { InjectModel } from '@nestjs/sequelize';
 
 @Injectable()
 export class ItemService {
   constructor(
-    @InjectModel(Item)
-    private itemModel: typeof Item,
-    @InjectModel(SaleItem)
-    private saleItemModel: typeof SaleItem,
+    @InjectModel(Product)
+    private itemModel: typeof Product,
+    @InjectModel(ProductSale)
+    private saleItemModel: typeof ProductSale,
     private helperService: HelperService,
-    @InjectModel(ReturnItem)
-    private returnItemModel: typeof ReturnItem,
+    @InjectModel(ReturnProducts)
+    private returnItemModel: typeof ReturnProducts,
   ) {}
 
-  async updateMonthlySalesCount(item: Item, date: Date, count: number) {
+  async updateMonthlySalesCount(item: Product, date: Date, count: number) {
     const monthKey = this.getMonthKey(date);
     // Initialize monthlySales as an empty object if it's undefined
     if (!item.monthlySales) {
@@ -44,7 +44,7 @@ export class ItemService {
     itemCode: number,
     date: Date,
     count: number,
-  ): Promise<Item> {
+  ): Promise<Product> {
     const item = await this.itemModel.findOne({
       where: { code: itemCode },
     });
@@ -67,7 +67,7 @@ export class ItemService {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
   }
 
-  async createSaleItem(row: any, sale: Sale): Promise<SaleItem> {
+  async createSaleItem(row: any, sale: Sale): Promise<ProductSale> {
     const item = await this.getOrCreateItem(row);
 
     const saleItem = this.saleItemModel.create({
@@ -93,7 +93,7 @@ export class ItemService {
     return saleItem;
   }
 
-  async getOrCreateItem(row: any): Promise<Item> {
+  async getOrCreateItem(row: any): Promise<Product> {
     let item = await this.itemModel.findOne({
       where: { name: row['Item Name'] },
     });
@@ -126,7 +126,7 @@ export class ItemService {
     return item;
   }
 
-  async getOrCreateItemForReturn(row: any): Promise<Item> {
+  async getOrCreateItemForReturn(row: any): Promise<Product> {
     let item = await this.itemModel.findOne({
       where: { name: row['Item Name'] },
     });
@@ -154,7 +154,10 @@ export class ItemService {
     return item;
   }
 
-  async createReturnItem(returnEntity: Return, row: any): Promise<ReturnItem> {
+  async createReturnItem(
+    returnEntity: Return,
+    row: any,
+  ): Promise<ReturnProducts> {
     const item = await this.getOrCreateItemForReturn(row);
 
     const returnItem = await this.returnItemModel.create({
