@@ -14,6 +14,9 @@ import { ReturnProducts } from './entities/return-products.entity';
 import { HelperService } from './services/helper.service';
 import { ItemService } from './services/items.service';
 import { SequelizeModule } from '@nestjs/sequelize';
+import { AuthModule } from './auth/auth.module';
+import { JwtModuleWrapper } from './auth/jwt.module';
+import { User } from './auth/entities/user.entity';
 
 @Module({
   imports: [
@@ -36,6 +39,7 @@ import { SequelizeModule } from '@nestjs/sequelize';
         Product,
         ProductSale,
         ReturnProducts,
+        User,
       ],
       synchronize: true,
     }),
@@ -49,6 +53,8 @@ import { SequelizeModule } from '@nestjs/sequelize';
       ProductSale,
       ReturnProducts,
     ]),
+    JwtModuleWrapper,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService, HelperService, ItemService],
