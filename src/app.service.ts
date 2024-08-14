@@ -25,13 +25,18 @@ import {
   createOpenAIToolsAgent,
 } from 'langchain/agents';
 import { pull } from 'langchain/hub';
-import { ChatPromptTemplate } from '@langchain/core/prompts';
+import { ChatPromptTemplate, PromptTemplate } from '@langchain/core/prompts';
 import { TavilySearchResults } from '@langchain/community/tools/tavily_search';
 import { QuerySqlTool } from './toolkits/sql-tools';
 import { HelperService } from './services/helper.service';
 import { ItemService } from './services/items.service';
 import { InjectModel } from '@nestjs/sequelize';
 import { Sequelize } from 'sequelize-typescript';
+import { CreateMessageDto } from './dto/create-message.dto';
+import { Message } from './entities/message.entity';
+import { MessagesPoll } from './entities/message-poll.entity';
+import { User } from './auth/entities/user.entity';
+import { StringOutputParser } from '@langchain/core/output_parsers';
 
 @Injectable()
 export class AppService implements OnModuleInit {
@@ -44,6 +49,10 @@ export class AppService implements OnModuleInit {
     private saleModel: typeof Sale,
     @InjectModel(Return)
     private returnModel: typeof Return,
+    @InjectModel(Message)
+    private messageModel: typeof Message,
+    @InjectModel(MessagesPoll)
+    private messagesPollModel: typeof MessagesPoll,
     // @InjectModel(Collection)
     // private collectionRepository: typeof Collection,
     private itemService: ItemService,
@@ -52,7 +61,7 @@ export class AppService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    await this.sequelize.sync();
+    await this.sequelize.sync({ alter: true });
   }
 
   async chat(userQuery: string): Promise<any> {
@@ -84,9 +93,31 @@ export class AppService implements OnModuleInit {
         input: userQuery,
       });
 
-      return result;
+      return result.output;
     } catch (error) {
       throw new BadRequestException(error.message);
+    }
+  }
+
+  async toArabicMessage(question: string, query: string) {
+    try {
+      const model = new ChatOpenAI({
+        temperature: 0,
+        modelName: 'gpt-4o-mini',
+      });
+
+      const promptTemplate = PromptTemplate.fromTemplate(
+        'based on this questions:{question} and this query restult: {query} you will respond to the client in arabic language and format the text if necessary',
+      );
+
+      const chain = promptTemplate.pipe(model).pipe(new StringOutputParser());
+
+      return chain.invoke({
+        question,
+        query,
+      });
+    } catch (error) {
+      throw error;
     }
   }
 
@@ -353,6 +384,70 @@ export class AppService implements OnModuleInit {
       });
     }
     return sale;
+  }
+
+  async createMessage(body: CreateMessageDto, user: User) {
+    try {
+      let messagesPoll;
+      const messagePollName = this.getFourWords(body.message);
+
+      if (body.messagePollId === undefined) {
+        messagesPoll = await this.messagesPollModel.create({
+          userId: user.id,
+          name: messagePollName,
+        });
+      } else {
+        messagesPoll = await this.messagesPollModel.findOne({
+          where: { id: body.messagePollId },
+        });
+      }
+
+      const userMessage = await this.messageModel.create({
+        message: body.message,
+        messagePollId: messagesPoll.id,
+      });
+
+      const agentResult = await this.chat(body.message);
+
+      const nextMessage = await this.toArabicMessage(body.message, agentResult);
+
+      const llmMessage = await this.messageModel.create({
+        message: nextMessage,
+        messagePollId: messagesPoll.id,
+        assistant: true,
+      });
+
+      return [userMessage, llmMessage];
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getMessagesByPollId(id: number) {
+    try {
+      return this.messageModel.findAll({ where: { messagePollId: id } });
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getMessagesPoll(user: User) {
+    try {
+      return this.messagesPollModel.findAll({ where: { userId: user.id } });
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  getFourWords(input: string): string {
+    const words = input.split(' ');
+    let fourWords = words;
+
+    if (words.length >= 4) {
+      fourWords = words.slice(0, 4);
+    }
+
+    return fourWords.join(' ');
   }
 
   async clearAllData() {

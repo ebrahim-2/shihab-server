@@ -17,6 +17,8 @@ import { SequelizeModule } from '@nestjs/sequelize';
 import { AuthModule } from './auth/auth.module';
 import { JwtModuleWrapper } from './auth/jwt.module';
 import { User } from './auth/entities/user.entity';
+import { MessagesPoll } from './entities/message-poll.entity';
+import { Message } from './entities/message.entity';
 
 @Module({
   imports: [
@@ -40,6 +42,8 @@ import { User } from './auth/entities/user.entity';
         ProductSale,
         ReturnProducts,
         User,
+        MessagesPoll,
+        Message,
       ],
       synchronize: true,
     }),
@@ -52,6 +56,8 @@ import { User } from './auth/entities/user.entity';
       Product,
       ProductSale,
       ReturnProducts,
+      MessagesPoll,
+      Message,
     ]),
     JwtModuleWrapper,
     AuthModule,

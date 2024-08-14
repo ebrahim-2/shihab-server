@@ -1,4 +1,5 @@
-import { Table, Column, Model, DataType } from 'sequelize-typescript';
+import { Table, Column, Model, DataType, HasMany } from 'sequelize-typescript';
+import { MessagesPoll } from 'src/entities/message-poll.entity';
 
 @Table
 export class User extends Model<User> {
@@ -16,4 +17,7 @@ export class User extends Model<User> {
 
   @Column
   token: string;
+
+  @HasMany(() => MessagesPoll)
+  messagesPoll: MessagesPoll[];
 }
