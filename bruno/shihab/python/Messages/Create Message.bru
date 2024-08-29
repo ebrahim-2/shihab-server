@@ -1,0 +1,22 @@
+meta {
+  name: Create Message
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:8000/create-message
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJtZTNAZ21haWwuY29tIiwiZXhwIjoxNzI3NDY3Mzk2fQ.EosNV9z_cgD_NQiyIYGuqC7kVGuRLEMCEEdUjAojYcw
+}
+
+body:json {
+  {
+    "message": "العملاء العشره الأكثر شراءً"
+  }
+}

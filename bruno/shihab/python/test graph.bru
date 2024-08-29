@@ -1,0 +1,17 @@
+meta {
+  name: test graph
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:5001/query
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "query": "العملاء الأكثر طلباً مع عدد الطلبات"
+  }
+}

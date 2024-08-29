@@ -1,0 +1,23 @@
+meta {
+  name: Get Messages By Poll Id
+  type: http
+  seq: 2
+}
+
+get {
+  url: http://localhost:8000/get-messages/14
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJtZTNAZ21haWwuY29tIiwiZXhwIjoxNzI0ODcxMjMyfQ.PQWipU2Q-UdW-5DBznlelcgIcq3Ex0p08qJRtXEexyM
+}
+
+body:json {
+  {
+    "email": "me@gmail.com",
+    "password": "12345678"
+  }
+}
