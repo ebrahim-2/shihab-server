@@ -134,11 +134,11 @@ export class AppService implements OnModuleInit {
       const data = XLSX.utils.sheet_to_json(worksheet);
 
       switch (sheetName) {
-        case 'مبيعات المندوبين':
-          await this.processSales(data);
-          break;
         case 'مرتجعات المندوبين':
           await this.processReturns(data);
+          break;
+        case 'تحصيلات المندوبين':
+          await this.processCollections(data);
           break;
       }
     }
@@ -284,78 +284,34 @@ export class AppService implements OnModuleInit {
     const session = this.neo4jService.getSession();
 
     for (const row of data) {
-      /**
-       * Columns in sheet "تحصيلات المندوبين":
-          [
-            'Collection Code', 'Collection Type',
-            'Invoice Code',    'Customer Code',
-            'Customer Name',   'Salesman Code',
-            'Salesman Name',   'Location',
-            'Collection Date', 'Amount',
-            'Currency',        'Settled',
-            'Payment Type',    'Notes',
-            'ERP Status',      'ERP Message',
-            'Area',            'Address',
-            'Phone number'
-          ]
-       */
       await session.run(
         `MERGE (c:Customer {code: $customerCode})
       ON CREATE SET c.name = $customerName, c.phone = toInteger($phoneNumber), c.address = $address
       MERGE (s:Salesman {code: toInteger($salesmanCode)})
       ON CREATE SET s.name = $salesmanName
-      MERGE (i:Product {code: toInteger($itemCode)})
-      ON CREATE SET i.name = $itemName, i.priceBig = toInteger($priceBig), i.priceMedium = toInteger($priceMedium), i.priceSmall = toInteger($priceSmall), i.bigUnit = $bigUnit, i.mediumUnit = $mediumUnit, i.smallUnit = $smallUnit
 
       MERGE (a:Area {name: $area})
 
-      MERGE (o:Order {invoiceCode: $invoiceCode})
+      MERGE (o:Collection {collectionCode: $collectionCode})
+      ON CREATE SET o.collectionDate =  datetime($date), o.collectionAmount = toInteger($amount)
 
-      MERGE (r:Return {returnCode: $returnCode})
-      ON CREATE SET r.returnDate = datetime($date),  r.returnedAmount = toInteger($lineAmount)
-
-      MERGE (c)-[:RETURNED]->(r)
-      MERGE (r)-[:RETURNED_TO]->(s)
-      MERGE (r)-[returnedP:RETURNED_PRODUCT]->(i)
-      MERGE (r)-[:RETURNED_IN]->(a)
-      MERGE (r)-[:RETURNED_FROM]->(o)
-
-       SET returnedP.batchNumber = $batchNumber,
-       returnedP.bigQuantity = toInteger($bigQuantity),
-       returnedP.mediumQuantity = toInteger($mediumQuantity),
-       returnedP.smallQuantity = toInteger($smallQuantity)
+      MERGE (o)-[:COLLECTED_FROM]->(c)
+      MERGE (o)-[:COLLECTED_IN]->(a)
+      MERGE (o)-[:COLLECTED_BY]->(s)
       `,
         {
           customerCode: row['Customer Code'],
           customerName: row['Customer Name'],
           phoneNumber: row['Phone number'],
-          address: row['اAddress'],
+          address: row['Address'],
           area: row['Area'],
           salesmanCode: row['Salesman Code'],
           salesmanName: row['Salesman Name'],
-          itemCode: row['Item Code'],
-          itemName: row['Item Name'],
-          invoiceCode: row['Invoice Code'],
+          collectionCode: row['Collection Code'],
           date: this.helperService
-            .parseDateTime(row['Return Date'], row['Return Time'])
+            .parseDateDynamic(row['Collection Date'])
             .toISOString(),
-          batchNumber: row['Batch Number'],
-          totalAmount: row['Line Amount'],
-          bigQuantity: this.helperService.parseFloatOrNull(row['Big Quantity']),
-          bigUnit: this.helperService.parseStringOrNull(row['Big Unit']),
-          priceBig: this.helperService.parseFloatOrNull(row['Price Big']),
-          mediumQuantity: this.helperService.parseIntOrNull(
-            row['Medium Quantity'],
-          ),
-          mediumUnit: this.helperService.parseStringOrNull(row['Medium Unit']),
-          priceMedium: this.helperService.parseFloatOrNull(row['Price Medium']),
-          smallQuantity: this.helperService.parseIntOrNull(
-            row['Small Quantity'],
-          ),
-          smallUnit: this.helperService.parseStringOrNull(row['Small Unit']),
-          priceSmall: this.helperService.parseFloatOrNull(row['Price Small']),
-          lineAmount: row['Line Amount'],
-          returnCode: row['Return Code'],
+          amount: row['Amount'],
         },
       );
     }
