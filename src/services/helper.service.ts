@@ -16,11 +16,17 @@ export class HelperService {
   }
 
   private dateFormats = [
-    'yyyy-MM-dd', // for "2023-07-30"
-    'dd-MMM-yy', // for "01-Jan-23"
-    'yyyy-MM-dd HH:mm', // for combined date and time
-    'dd-MMM-yy hh:mm a', // for "01-Jan-23 08:01 PM"
-    'MMM d yyyy h:mma', // for "Jan  1 2023  3:00AM"
+    'yyyy-MM-dd',
+    'dd-MMM-yy',
+    'yyyy-MM-dd HH:mm',
+    'dd-MMM-yy hh:mm a',
+    'MMM d yyyy h:mma',
+    'MMM d yyyy  h:mma',
+    'MMM  d yyyy h:mma',
+    'MMM  d yyyy  h:mma',
+    'MMM  dd yyyy  h:mma',
+    'MMM  dd yyyy h:mma',
+    'MMM dd yyyy h:mma',
   ];
 
   parseDateDynamic(dateString: string | undefined | null): Date | null {
