@@ -4,10 +4,14 @@ import { CreateMessageDto } from './dto/create-message.dto';
 import { UserDecorator } from './auth/user.decorator';
 import { User } from './auth/entities/user.entity';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
+import { GraphService } from './services/graph.service';
 
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(
+    private readonly appService: AppService,
+    private readonly graphService: GraphService,
+  ) {}
 
   @Post('chat')
   async chat(@Body() body: any): Promise<any> {
@@ -45,5 +49,10 @@ export class AppController {
   @UseGuards(JwtAuthGuard)
   async getMessagesPolls(@UserDecorator() user: User) {
     return this.appService.getMessagesPoll(user);
+  }
+
+  @Post('test-graph')
+  testGraph(@Body() body: any): Promise<any> {
+    return this.graphService.test(body.query);
   }
 }

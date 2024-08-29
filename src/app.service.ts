@@ -8,7 +8,6 @@ import { DataSource } from 'typeorm';
 // @ts-ignore
 import * as XLSX from 'xlsx';
 import * as path from 'path';
-import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Customer } from './entities/customer.entity';
 import { Salesman } from './entities/salesman.entity';
@@ -37,6 +36,8 @@ import { Message } from './entities/message.entity';
 import { MessagesPoll } from './entities/message-poll.entity';
 import { User } from './auth/entities/user.entity';
 import { StringOutputParser } from '@langchain/core/output_parsers';
+import { Neo4jService } from './services/neo4j.service';
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 
 @Injectable()
 export class AppService implements OnModuleInit {
@@ -58,6 +59,7 @@ export class AppService implements OnModuleInit {
     private itemService: ItemService,
     private helperService: HelperService,
     private sequelize: Sequelize,
+    private neo4jService: Neo4jService,
   ) {}
 
   async onModuleInit() {
@@ -82,11 +84,12 @@ export class AppService implements OnModuleInit {
       const toolkit = new SqlToolkit(db);
       toolkit.dialect = 'postgres';
 
-      const model = new ChatOpenAI({
+      const model = new ChatGoogleGenerativeAI({
         temperature: 0,
-        modelName: 'gpt-4o',
+        model: 'gemini-1.5-pro',
       });
 
+      // @ts-ignore
       const executor = createSqlAgent(model, toolkit);
 
       const result = await executor.invoke({
@@ -110,6 +113,7 @@ export class AppService implements OnModuleInit {
         'based on this questions:{question} and this query restult: {query} you will respond to the client in arabic language and format the text if necessary',
       );
 
+      // @ts-ignore
       const chain = promptTemplate.pipe(model).pipe(new StringOutputParser());
 
       return chain.invoke({
@@ -136,110 +140,133 @@ export class AppService implements OnModuleInit {
         case 'مرتجعات المندوبين':
           await this.processReturns(data);
           break;
-        // case 'تحصيلات المندوبين':
-        //   await this.processCollections(data);
-        //   break;
       }
     }
   }
 
   async processSales(data: any[]): Promise<void> {
+    const session = this.neo4jService.getSession();
+
     for (const row of data) {
-      const customer = await this.getOrCreateCustomer(
-        row['Customer Code'],
-        row,
-      );
-      const salesman = await this.getOrCreateSalesman(
-        row['Salesman Code'],
-        row,
-      );
-
-      // Check if a sale with this invoice code already exists
-      let sale = await this.saleModel.findOne({
-        where: { invoiceCode: row['Invoice Code'] },
-      });
-
-      if (!sale) {
-        // If the sale doesn't exist, create a new one
-        sale = this.saleModel.build({
-          invoiceDateTime: this.helperService.parseDateTime(
-            row['Invoice Date'],
-            row['Invoice Time'],
-          ),
+      await session.run(
+        `MERGE (c:Customer {code: $customerCode})
+      ON CREATE SET c.name = $customerName, c.phone = toInteger($phoneNumber), c.address = $address
+      MERGE (s:Salesman {code: toInteger($salesmanCode)})
+      ON CREATE SET s.name = $salesmanName
+      MERGE (i:Product {code: toInteger($itemCode)})
+      ON CREATE SET i.name = $itemName, i.priceBig = toInteger($priceBig), i.priceMedium = toInteger($priceMedium), i.priceSmall = toInteger($priceSmall), i.bigUnit = $bigUnit, i.mediumUnit = $mediumUnit, i.smallUnit = $smallUnit
+      MERGE (a:Area {name: $area})
+      MERGE (o:Order {invoiceCode: $invoiceCode})
+      ON CREATE SET o.invoiceDate = datetime($date), o.discountAmount = toInteger($discountAmount), o.lineAmount = toInteger($lineAmount)
+      MERGE (c)-[:PLACED_ORDER]->(o)
+      MERGE (s)-[:SOLD_ORDER]->(o)
+      MERGE (o)-[saleP:CONTAINS_PRODUCT]->(i)
+      MERGE (o)-[:DELIVERED_IN]->(a)
+      MERGE (c)-[:LOCATED_IN]->(a)
+       SET saleP.batchNumber = $batchNumber,
+       saleP.bigQuantity = toInteger($bigQuantity),
+       saleP.mediumQuantity = toInteger($mediumQuantity),
+       saleP.smallQuantity = toInteger($smallQuantity)
+      `,
+        {
+          customerCode: row['Customer Code'],
+          customerName: row['Customer Name'],
+          phoneNumber: row['Phone number'],
+          address: row['Address'],
+          area: row['Area'],
+          salesmanCode: row['Salesman Code'],
+          salesmanName: row['Salesman Name'],
+          itemCode: row['Item Code'],
+          itemName: row['Item Name'],
           invoiceCode: row['Invoice Code'],
-          customerId: customer.code,
-          salesmanId: salesman.code,
-          totalAmount: 0, // Initialize totalAmount
-          discountAmount: 0,
-        });
-
-        await sale.save();
-      }
-
-      // Create and add the new sale item to the existing or new sale
-      await this.itemService.createSaleItem(row, sale);
-
-      sale.totalAmount += row['Line Amount'];
-      sale.discountAmount += row['Discount Amount'];
-
-      customer.totalPurchaseCount += 1;
-      customer.totalPurchaseAmount += row['Line Amount'];
-
-      await customer.save();
-
-      salesman.totalSalesCount += 1;
-      salesman.totalSalesAmount += row['Line Amount'];
-
-      await salesman.save();
-
-      // Save the updated sale
-      await sale.save();
-
-      await sale;
+          date: this.helperService
+            .parseDateTime(row['Invoice Date'], row['Invoice Time'])
+            .toISOString(),
+          batchNumber: row['Batch Number'],
+          discountAmount: row['Discount Amount'],
+          totalAmount: row['Line Amount'],
+          bigQuantity: this.helperService.parseFloatOrNull(row['Big Quantity']),
+          bigUnit: this.helperService.parseStringOrNull(row['Big Unit']),
+          priceBig: this.helperService.parseFloatOrNull(row['Price Big']),
+          mediumQuantity: this.helperService.parseIntOrNull(
+            row['Medium Quantity'],
+          ),
+          mediumUnit: this.helperService.parseStringOrNull(row['Medium Unit']),
+          priceMedium: this.helperService.parseFloatOrNull(row['Price Medium']),
+          smallQuantity: this.helperService.parseIntOrNull(
+            row['Small Quantity'],
+          ),
+          smallUnit: this.helperService.parseStringOrNull(row['Small Unit']),
+          priceSmall: this.helperService.parseFloatOrNull(row['Price Small']),
+          lineAmount: row['Line Amount'],
+        },
+      );
     }
   }
 
   async processReturns(data: any[]): Promise<void> {
+    const session = this.neo4jService.getSession();
+
     for (const row of data) {
-      const customer = await this.getOrCreateCustomer(
-        row['Customer Code'],
-        row,
-      );
-      const salesman = await this.getOrCreateSalesman(
-        row['Salesman Code'],
-        row,
-      );
+      await session.run(
+        `MERGE (c:Customer {code: $customerCode})
+      ON CREATE SET c.name = $customerName, c.phone = toInteger($phoneNumber), c.address = $address
+      MERGE (s:Salesman {code: toInteger($salesmanCode)})
+      ON CREATE SET s.name = $salesmanName
+      MERGE (i:Product {code: toInteger($itemCode)})
+      ON CREATE SET i.name = $itemName, i.priceBig = toInteger($priceBig), i.priceMedium = toInteger($priceMedium), i.priceSmall = toInteger($priceSmall), i.bigUnit = $bigUnit, i.mediumUnit = $mediumUnit, i.smallUnit = $smallUnit
 
-      let sale: any = await this.findOrCreateSaleByCode(
-        row['Invoice Code'],
-        row,
-      );
+      MERGE (a:Area {name: $area})
 
-      let returnEntity = await this.returnModel.findOne({
-        where: { returnCode: row['Return Code'] },
-      });
+      MERGE (o:Order {invoiceCode: $invoiceCode})
 
-      if (!returnEntity) {
-        returnEntity = await this.returnModel.create({
-          returnDateTime: this.helperService.parseDateTime(
-            row['Return Date'],
-            row['Return Time'],
+      MERGE (r:Return {returnCode: $returnCode})
+      ON CREATE SET r.returnDate = datetime($date),  r.returnedAmount = toInteger($lineAmount)
+
+      MERGE (c)-[:RETURNED]->(r)
+      MERGE (r)-[:RETURNED_TO]->(s)
+      MERGE (r)-[returnedP:RETURNED_PRODUCT]->(i)
+      MERGE (r)-[:RETURNED_IN]->(a)
+      MERGE (r)-[:RETURNED_FROM]->(o)
+
+       SET returnedP.batchNumber = $batchNumber,
+       returnedP.bigQuantity = toInteger($bigQuantity),
+       returnedP.mediumQuantity = toInteger($mediumQuantity),
+       returnedP.smallQuantity = toInteger($smallQuantity)
+      `,
+        {
+          customerCode: row['Customer Code'],
+          customerName: row['Customer Name'],
+          phoneNumber: row['Phone number'],
+          address: row['اAddress'],
+          area: row['Area'],
+          salesmanCode: row['Salesman Code'],
+          salesmanName: row['Salesman Name'],
+          itemCode: row['Item Code'],
+          itemName: row['Item Name'],
+          invoiceCode: row['Invoice Code'],
+          date: this.helperService
+            .parseDateTime(row['Return Date'], row['Return Time'])
+            .toISOString(),
+          batchNumber: row['Batch Number'],
+          totalAmount: row['Line Amount'],
+          bigQuantity: this.helperService.parseFloatOrNull(row['Big Quantity']),
+          bigUnit: this.helperService.parseStringOrNull(row['Big Unit']),
+          priceBig: this.helperService.parseFloatOrNull(row['Price Big']),
+          mediumQuantity: this.helperService.parseIntOrNull(
+            row['Medium Quantity'],
           ),
+          mediumUnit: this.helperService.parseStringOrNull(row['Medium Unit']),
+          priceMedium: this.helperService.parseFloatOrNull(row['Price Medium']),
+          smallQuantity: this.helperService.parseIntOrNull(
+            row['Small Quantity'],
+          ),
+          smallUnit: this.helperService.parseStringOrNull(row['Small Unit']),
+          priceSmall: this.helperService.parseFloatOrNull(row['Price Small']),
+          lineAmount: row['Line Amount'],
           returnCode: row['Return Code'],
-          currency: row['Currency'],
-          type: row['Type'],
-          originalInvoiceId: sale.invoiceCode,
-          customerId: customer.code,
-          salesmanId: salesman.code,
-          totalAmount: 0,
-        });
-      }
-
-      returnEntity.totalAmount += row['Total Amount'];
-      await returnEntity.save();
-
-      // Create and associate ReturnItem
-      await this.itemService.createReturnItem(returnEntity, row);
+        },
+      );
     }
   }
 
@@ -253,32 +280,86 @@ export class AppService implements OnModuleInit {
     }
     return sale;
   }
-  // async processCollections(data: any[]): Promise<void> {
-  //   for (const row of data) {
-  //     const customer = await this.getOrCreateCustomer(
-  //       row['Customer Code'],
-  //       row['Customer Name'],
-  //     );
-  //     const salesman = await this.getOrCreateSalesman(
-  //       row['Salesman Code'],
-  //       row['Salesman Name'],
-  //     );
+  async processCollections(data: any[]): Promise<void> {
+    const session = this.neo4jService.getSession();
 
-  //     const collection = this.collectionRepository.create({
-  //       collectionCode: row['Collection Code'],
-  //       collectionType: row['Collection Type'],
-  //       collectionDate: new Date(row['Collection Date']),
-  //       amount: row['Amount'],
-  //       currency: row['Currency'],
-  //       settled: row['Settled'],
-  //       paymentType: row['Payment Type'],
-  //       customer,
-  //       salesman,
-  //     });
+    for (const row of data) {
+      /**
+       * Columns in sheet "تحصيلات المندوبين":
+          [
+            'Collection Code', 'Collection Type',
+            'Invoice Code',    'Customer Code',
+            'Customer Name',   'Salesman Code',
+            'Salesman Name',   'Location',
+            'Collection Date', 'Amount',
+            'Currency',        'Settled',
+            'Payment Type',    'Notes',
+            'ERP Status',      'ERP Message',
+            'Area',            'Address',
+            'Phone number'
+          ]
+       */
+      await session.run(
+        `MERGE (c:Customer {code: $customerCode})
+      ON CREATE SET c.name = $customerName, c.phone = toInteger($phoneNumber), c.address = $address
+      MERGE (s:Salesman {code: toInteger($salesmanCode)})
+      ON CREATE SET s.name = $salesmanName
+      MERGE (i:Product {code: toInteger($itemCode)})
+      ON CREATE SET i.name = $itemName, i.priceBig = toInteger($priceBig), i.priceMedium = toInteger($priceMedium), i.priceSmall = toInteger($priceSmall), i.bigUnit = $bigUnit, i.mediumUnit = $mediumUnit, i.smallUnit = $smallUnit
 
-  //     await this.collectionRepository.save(collection);
-  //   }
-  // }
+      MERGE (a:Area {name: $area})
+
+      MERGE (o:Order {invoiceCode: $invoiceCode})
+
+      MERGE (r:Return {returnCode: $returnCode})
+      ON CREATE SET r.returnDate = datetime($date),  r.returnedAmount = toInteger($lineAmount)
+
+      MERGE (c)-[:RETURNED]->(r)
+      MERGE (r)-[:RETURNED_TO]->(s)
+      MERGE (r)-[returnedP:RETURNED_PRODUCT]->(i)
+      MERGE (r)-[:RETURNED_IN]->(a)
+      MERGE (r)-[:RETURNED_FROM]->(o)
+
+       SET returnedP.batchNumber = $batchNumber,
+       returnedP.bigQuantity = toInteger($bigQuantity),
+       returnedP.mediumQuantity = toInteger($mediumQuantity),
+       returnedP.smallQuantity = toInteger($smallQuantity)
+      `,
+        {
+          customerCode: row['Customer Code'],
+          customerName: row['Customer Name'],
+          phoneNumber: row['Phone number'],
+          address: row['اAddress'],
+          area: row['Area'],
+          salesmanCode: row['Salesman Code'],
+          salesmanName: row['Salesman Name'],
+          itemCode: row['Item Code'],
+          itemName: row['Item Name'],
+          invoiceCode: row['Invoice Code'],
+          date: this.helperService
+            .parseDateTime(row['Return Date'], row['Return Time'])
+            .toISOString(),
+          batchNumber: row['Batch Number'],
+          totalAmount: row['Line Amount'],
+          bigQuantity: this.helperService.parseFloatOrNull(row['Big Quantity']),
+          bigUnit: this.helperService.parseStringOrNull(row['Big Unit']),
+          priceBig: this.helperService.parseFloatOrNull(row['Price Big']),
+          mediumQuantity: this.helperService.parseIntOrNull(
+            row['Medium Quantity'],
+          ),
+          mediumUnit: this.helperService.parseStringOrNull(row['Medium Unit']),
+          priceMedium: this.helperService.parseFloatOrNull(row['Price Medium']),
+          smallQuantity: this.helperService.parseIntOrNull(
+            row['Small Quantity'],
+          ),
+          smallUnit: this.helperService.parseStringOrNull(row['Small Unit']),
+          priceSmall: this.helperService.parseFloatOrNull(row['Price Small']),
+          lineAmount: row['Line Amount'],
+          returnCode: row['Return Code'],
+        },
+      );
+    }
+  }
 
   // private async getOrCreateInvoice(
   //   invoiceCode: string,

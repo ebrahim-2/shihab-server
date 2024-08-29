@@ -19,6 +19,8 @@ import { JwtModuleWrapper } from './auth/jwt.module';
 import { User } from './auth/entities/user.entity';
 import { MessagesPoll } from './entities/message-poll.entity';
 import { Message } from './entities/message.entity';
+import { GraphService } from './services/graph.service';
+import { Neo4jService } from './services/neo4j.service';
 
 @Module({
   imports: [
@@ -63,6 +65,12 @@ import { Message } from './entities/message.entity';
     AuthModule,
   ],
   controllers: [AppController],
-  providers: [AppService, HelperService, ItemService],
+  providers: [
+    AppService,
+    HelperService,
+    ItemService,
+    GraphService,
+    Neo4jService,
+  ],
 })
 export class AppModule {}

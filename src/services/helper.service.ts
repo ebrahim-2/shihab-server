@@ -3,7 +3,7 @@ import { isValid, parse } from 'date-fns';
 
 @Injectable()
 export class HelperService {
-  parseFloatOrNull(value: any): number | null {
+  parseFloatOrNull(value: any): number {
     return value !== '-' ? parseFloat(value) : null;
   }
 
@@ -24,7 +24,7 @@ export class HelperService {
   ];
 
   parseDateDynamic(dateString: string | undefined | null): Date | null {
-    if (!dateString) {
+    if (!dateString || dateString === '') {
       return null;
     }
 
