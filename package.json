@@ -20,9 +20,10 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
-    "@langchain/community": "^0.2.22",
+    "@langchain/community": "^0.2.31",
     "@langchain/core": "^0.2.20",
-    "@langchain/openai": "^0.2.5",
+    "@langchain/google-genai": "^0.0.26",
+    "@langchain/openai": "^0.2.7",
     "@langchain/pinecone": "^0.0.8",
     "@nestjs/common": "^10.0.0",
     "@nestjs/config": "^3.2.3",
@@ -41,6 +42,7 @@
     "date-fns": "^3.6.0",
     "langchain": "^0.2.15",
     "mongoose": "^8.5.1",
+    "neo4j-driver": "^5.23.0",
     "pg": "^8.12.0",
     "pg-hstore": "^2.3.4",
     "reflect-metadata": "^0.1.13",
