@@ -134,6 +134,8 @@ export class AppService implements OnModuleInit {
       const data = XLSX.utils.sheet_to_json(worksheet);
 
       switch (sheetName) {
+        case 'مبيعات المندوبين':
+          await this.processSales(data);
         case 'مرتجعات المندوبين':
           await this.processReturns(data);
           break;
